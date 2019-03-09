@@ -1,0 +1,114 @@
+import javax.mail.internet.AddressException;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.Socket;
+import java.util.ArrayList;
+
+import java.util.Optional;
+
+public class Esclave implements  Runnable{
+    private final Socket socket;
+    private  Server server ;
+
+    public Esclave(Socket socket) {
+        this.socket = socket;
+    }
+
+    public Esclave(Socket socket, Server server){
+        this.socket = socket;
+        this.server = server;
+
+    }
+
+    /* Esclave queries */
+    public boolean createList(String[] commande) throws AddressException {
+        ListeDeDiffusion listeDeDiffusion =
+                new ListeDeDiffusion(commande[1],commande[2],commande[3],commande[4]);
+        return  server.addListeDifusion(listeDeDiffusion);
+    }
+
+    public void afficheList(){
+        ArrayList<ListeDeDiffusion> AllList = server.getAllList();
+        int i =1;
+        System.out.println("Il y'a "+ AllList.size()+ " liste de diffusion :");
+        AllList.stream().forEach(e-> System.out.println(e));
+    }
+
+    private boolean deleteList(String nomlist, String pswd) {
+        ArrayList<ListeDeDiffusion> allList = server.getAllList();
+        boolean deleted =
+                allList.removeIf(l->l.getPassword().equals(pswd) && l.getNom().equals(nomlist));
+        if(deleted){
+            System.out.println("liste supprimé avec succés!");
+            this.afficheList();
+        }else
+            System.out.println("nom de liste ou mdp incorrecte!");
+
+        return deleted;
+    }
+
+
+    private boolean subscribeList(String liste, String mail) throws AddressException {
+        ArrayList<ListeDeDiffusion> allList = server.getAllList();
+        boolean added = false ;
+        for(ListeDeDiffusion list : allList){
+            if(list.getNom().equals(liste)){
+                added = list.addAbonne(mail);
+                System.out.println("vous avez été ajouté !");
+                break ;
+            }
+        }
+        return added;
+    }
+
+    private boolean unscribeList(String liste, String Mail) {
+        ArrayList<ListeDeDiffusion> allList = server.getAllList();
+        boolean deleted = allList.removeIf(list->list.getNom().equals(liste));
+        if (deleted)
+            System.out.println("vous êtes désabonné de la liste de diffusion: "+liste);
+        return deleted;
+    }
+
+
+    private ListeDeDiffusion GetListeDeDiffusion(String nomListe) {
+
+        Optional<ListeDeDiffusion> list =
+                server.getAllList().stream().filter(l -> l.getNom().equals(nomListe)).findFirst();
+        if (list.isPresent()){
+            ListeDeDiffusion listeDeDiffusion = list.get();
+            return listeDeDiffusion;
+        }
+        return null;
+    }
+
+    @Override
+    public void run() {
+        BufferedReader input = null; // flux en lecture
+        try {
+            input = new BufferedReader(
+                    new InputStreamReader(socket.getInputStream(),
+                            "8859_1"),1024);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        StringBuffer sb = new StringBuffer();
+
+        try {
+            sb.append(input.readLine());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println(sb);
+
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+}
+
